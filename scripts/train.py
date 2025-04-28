@@ -1,31 +1,52 @@
-import detectron2
-from detectron2.engine import DefaultTrainer
-from detectron2.config import get_cfg
-from detectron2 import model_zoo
-from utils import register_cardd_dataset
+# scripts/train.py
 
-def setup_cfg():
-    cfg = get_cfg()
-    cfg.merge_from_file(model_zoo.get_config_file(
-        "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
-    ))
-    cfg.DATASETS.TRAIN = ("cardd_train",)
-    cfg.DATASETS.TEST = ("cardd_val",)
-    cfg.DATALOADER.NUM_WORKERS = 2
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
-        "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
-    )
-    cfg.SOLVER.IMS_PER_BATCH = 2
-    cfg.SOLVER.BASE_LR = 0.00025
-    cfg.SOLVER.MAX_ITER = 3000  # Adjust as needed
-    cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
-    cfg.MODEL.ROI_HEADS.NUM_CLASSES = 3  # change based on your damage classes
-    cfg.OUTPUT_DIR = "../output"
-    return cfg
+import torch
+from torch.utils.data import DataLoader
+import os
+from utils import CarDamageDataset, get_model
 
-if __name__ == "__main__":
-    register_cardd_dataset()
-    cfg = setup_cfg()
-    trainer = DefaultTrainer(cfg)
-    trainer.resume_or_load(resume=False)
-    trainer.train()
+def collate_fn(batch):
+    return tuple(zip(*batch))
+
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+# لود دیتاست
+train_dataset = CarDamageDataset(
+    images_dir="./datasets/CarDD/train",
+    annotations_path="./datasets/CarDD/annotations/train_annotations.json"
+)
+
+train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
+
+# تعریف مدل
+model = get_model(num_classes=3)
+model.to(device)
+
+# آپتیمایزر
+params = [p for p in model.parameters() if p.requires_grad]
+optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+
+# آموزش
+num_epochs = 10
+
+for epoch in range(num_epochs):
+    model.train()
+    epoch_loss = 0
+    for images, targets in train_loader:
+        images = list(image.to(device) for image in images)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        loss_dict = model(images, targets)
+        losses = sum(loss for loss in loss_dict.values())
+
+        optimizer.zero_grad()
+        losses.backward()
+        optimizer.step()
+
+        epoch_loss += losses.item()
+
+    print(f"Epoch {epoch+1} Loss: {epoch_loss}")
+
+# ذخیره مدل
+os.makedirs("./output/models", exist_ok=True)
+torch.save(model.state_dict(), "./output/models/model_final.pth")
