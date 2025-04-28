@@ -18,18 +18,18 @@ def visualize_predictions():
     register_cardd_dataset()
     predictor = load_model()
 
-    test_images = os.listdir("./datasets/CarDD/val")
-    os.makedirs("./output_images", exist_ok=True)
+    test_images = os.listdir("../datasets/CarDD/val")
+    os.makedirs("../output", exist_ok=True)
 
     for img_name in test_images:
-        img_path = os.path.join("./datasets/CarDD/val", img_name)
+        img_path = os.path.join("../datasets/CarDD/val", img_name)
         im = cv2.imread(img_path)
         outputs = predictor(im)
 
         v = Visualizer(im[:, :, ::-1], scale=1.2)
         out = v.draw_instance_predictions(outputs["instances"].to("cpu")).get_image()[:, :, ::-1]
 
-        save_path = os.path.join("./output_images", img_name)
+        save_path = os.path.join("../output", img_name)
         cv2.imwrite(save_path, out)
         print(f"Saved: {save_path}")
 

@@ -20,7 +20,7 @@ def setup_cfg():
     cfg.SOLVER.MAX_ITER = 3000  # Adjust as needed
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 3  # change based on your damage classes
-    cfg.OUTPUT_DIR = "./output"
+    cfg.OUTPUT_DIR = "../output"
     return cfg
 
 if __name__ == "__main__":
